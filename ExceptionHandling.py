@@ -129,7 +129,8 @@ if __name__ == "__main__":
         PROJECT = sys.argv[1]
         print("\nProcessing project: " + PROJECT)
         print "..."
-        metric_list = [['PROJECT', PROJECT]]
+       
+        metric_list = [['PROJECT', 'VERSION', 'FILE_NAME', 'METHODS', '# EXCEPT_BLOCKS', '# WO_EXCEPT_BLOCKS', '# RAISE_STMT', '# WO_RAISE_STMT', '# ALL_RAISES', '# ALL_EXCEPT', '# USER_DEF']]
         for f in input_path:
             for l in f:
                 #print("\nProcessing file: " + l)
@@ -143,23 +144,16 @@ if __name__ == "__main__":
                     visitor_def = UserDef()
                     visitor_def.visit(root)
                     
-                    METHODS += visitor.method
-                    WITH_EXCEPT += visitor.mwexception
-                    WITHOUT_EXCEPT += visitor.mwoexception
-                    WITHRAISE += visitor.mwraise
-                    WITHOUT_RAISE += visitor.mworaise
-                    ALL_RAISES += visitor_all.raiseEx
-                    ALL_CATCHES += visitor_all.exception     
-                    USER_EXCEPTION += visitor_def.count     
+                    METHODS = visitor.method
+                    WITH_EXCEPT = visitor.mwexception
+                    WITHOUT_EXCEPT = visitor.mwoexception
+                    WITHRAISE = visitor.mwraise
+                    WITHOUT_RAISE = visitor.mworaise
+                    ALL_RAISES = visitor_all.raiseEx
+                    ALL_CATCHES = visitor_all.exception     
+                    USER_EXCEPTION = visitor_def.count     
 
-        metric_list.append(['METHODS', METHODS])
-        metric_list.append(['WITH_EXCEPT', WITH_EXCEPT])                    
-        metric_list.append(['WITHOUT_EXCEPT', WITHOUT_EXCEPT])                    
-        metric_list.append(['WITHRAISE', WITHRAISE])                    
-        metric_list.append(['WITHOUT_RAISE', WITHOUT_RAISE])
-        metric_list.append(['ALL_RAISES', ALL_RAISES])
-        metric_list.append(['ALL_CATCHES', ALL_CATCHES])                    
-        metric_list.append(['USER_EXCEPTION', USER_EXCEPTION])
+                metric_list.append([PROJECT, '1.0', l, METHODS, WITH_EXCEPT, WITHOUT_EXCEPT, WITHRAISE, WITHOUT_RAISE, ALL_RAISES, ALL_CATCHES, USER_EXCEPTION])                   
 
         with open('metrics.csv', 'wt') as file:
             writer = csv.writer(file)
