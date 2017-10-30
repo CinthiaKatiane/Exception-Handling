@@ -2,122 +2,104 @@
 import ast
 import os
 import glob
-
+import csv
 # ------------------------------------------------------------------------------------------------- #
-# Classes auxiliares
+# Auxiliary classes
 
-# Aux Function to get the name of a node
+# Auxiliary class to get the name of a node
 class FunctionName():
     
     def get_call_name(self, node):
-        if isinstance(node.func, ast.Name):
-            return node.func.id
-        elif isinstance(node.func, ast.Attribute):
-            return node.func.attr
-        elif (isinstance(node.func, ast.Call)):
-            self.get_call_name(node)
+        if isinstance(node, ast.Name):
+            return node.id
+        elif isinstance(node, ast.Attribute):
+            return node.attr
         else:
             print node
 
-class BodyVisitor_LCOM(ast.NodeVisitor):
+class UserDef(ast.NodeVisitor):
+    def __init__(self):
+        self.count = 0
+
+    def visit_ClassDef(self, node):
+        x = node.bases
+        for i in range(len(x)):
+            call_name = FunctionName().get_call_name(x[i])
+            if call_name == 'Exception':
+                self.count += 1
+        super(UserDef, self).generic_visit(node)
+        return self.count
+        
+# Auxiliary class to visit the body of the method and get its data.
+class BodyVisitor(ast.NodeVisitor):
 
     def __init__(self):
-        self.bla = []
+        self.wraise = False
+        self.wexcept = False
 
     def visit_Body(self, node):
-        super(BodyVisitor_LCOM, self).generic_visit(node)
+        super(BodyVisitor, self).generic_visit(node)
 
-    def visit_Attribute(self,node):
-        if (isinstance(node.ctx, ast.Store)):
-            self.bla.append(node.attr)
-        super(BodyVisitor_LCOM, self).generic_visit(node)
+    def visit_Raise(self, node):
+        self.wraise = True
+        super(BodyVisitor, self).generic_visit(node)
 
+    def visit_TryFinally(self, node):
+        self.wexcept += True
+        super(BodyVisitor, self).generic_visit(node)
+
+    def visit_TryExcept(self, node):
+        self.wexcept += True
+        super(BodyVisitor, self).generic_visit(node)
 
 # ------------------------------------------------------------------------------------------------- #
 #Exception Handling
 class ExceptionHandling(ast.NodeVisitor):
 
     def __init__(self):
-        self.metric = 0
+        self.method = 0
+        self.mwraise = 0
+        self.mworaise = 0 
+        self.mwexception = 0
+        self.mwoexception = 0
 
     def visit_FunctionDef(self, node):
-        print("\tFunction '{0}' was defined.".format(node.name))
-        super(ExceptionHandling, self).generic_visit(node)
-    
+        self.method += 1
+        teste = BodyVisitor()
+        super(BodyVisitor, teste).generic_visit(node)
+        if (teste.wraise == True):
+            self.mwraise += 1
+        else:
+            self.mworaise +=1
+        if (teste.wexcept == True):
+            self.mwexception += 1
+        else:
+            self.mwoexception += 1
+
+class ExceptionAll(ast.NodeVisitor):
+    def __init__(self):
+        self.raiseEx = 0
+        self.exception = 0
+
+    def visit_FunctionDef(self, node):
+        super(ExceptionAll, self).generic_visit(node)
+
     def visit_Raise(self, node):
-        print "\t\tRaise Exception"
-        super(ExceptionHandling, self).generic_visit(node)
+        self.raiseEx += 1
+        super(ExceptionAll, self).generic_visit(node)
 
     def visit_TryFinally(self, node):
-        print "\t\tTry Finally ----------------------------------------------------------"
-        super(ExceptionHandling, self).generic_visit(node)
+        self.exception += 1
+        super(ExceptionAll, self).generic_visit(node)
 
     def visit_TryExcept(self, node):
-        print "\t\tTry Except ----------------------------------------------------------"
-        super(ExceptionHandling, self).generic_visit(node)
+        self.exception += 1
+        super(ExceptionAll, self).generic_visit(node)
 
-# ------------------------------------------------------------------------------------------------- #
-#Classes iniciais
-'''
-class FunctionDefVisitor(ast.NodeVisitor):
-    def __init__(self):
-        self.dictfun = {}
-
-    def visit_FunctionDef(self, node):
-        print("\tFunction '{0}' was defined.".format(node.name))
-        super(FunctionDefVisitor, self).generic_visit(node)
-        #print self.dictfun
-        self.dictfun = {}
-
-    def visit_Call(self,node):
-        call_name = FunctionName().get_call_name(node)
-        print(str("\t\t'{0}' was called.").format(call_name))
-        self.dictfun[call_name] = self.dictfun.get(call_name , 0) + 1
-        super(FunctionDefVisitor, self).generic_visit(node)
-
-
-class MyCustomVisitor(ast.NodeVisitor):
-    
-    def __init__(self):
-        self.counterTotal = 0 #Keeps the number of function calls
-        self.counterDefinition = 0 #Keeps the number of defined functions in the file
-        self.counterFunction = 0 #Keeps the number of function calls inside a defined function 
-        self.dictdef = {}
-        self.dictfun = {}
-
-    # Aux function
-    def get_call_name(self, node):
-        if isinstance(node.func, ast.Name):
-            return node.func.id
-        elif isinstance(node.func, ast.Attribute):
-            return node.func.attr
-        else:
-            raise NotImplementedError("Could not extract call-name from node: " + str(node))
-
-    def visit_Call(self, node):
-        self.counterTotal = self.counterTotal + 1
-        self.counterFunction = self.counterFunction + 1
-        call_name = self.get_call_name(node)
-        print(str("\t\t'{0}' was called.").format(call_name))
-        self.dictfun[call_name] = self.dictfun.get(call_name , 0) + 1
-        super(MyCustomVisitor, self).generic_visit(node)
-
-    def visit_ClassDef(self, node):
-        print("Class '{0}' was defined.".format(node.name))
-        super(MyCustomVisitor, self).generic_visit(node)
-    
-    def visit_FunctionDef(self, node):
-        self.dictdef[node.name] = self.dictfun
-        self.counterFunction = 0 #Restart the counter to get de quantity in a specfic defined function
-        self.counterDefinition = self.counterDefinition + 1
-        print("\tFunction '{0}' was defined.".format(node.name))
-        super(MyCustomVisitor, self).generic_visit(node)
-        print("\tA total of {0} function calls were found in {1}.\n".format(visitor.counterFunction, node.name))
-        print self.dictdef[node.name]     
-'''
-# ------------------------------------------------------------------------------------------------- #
 
 # Main
+def operation():
+    return 
 
 if __name__ == "__main__":
 
@@ -134,15 +116,60 @@ if __name__ == "__main__":
     else :
         input_path = glob.glob('./*.py')
 
+    METHODS = 0
+    WITH_EXCEPT = 0
+    WITHOUT_EXCEPT = 0
+    WITHRAISE = 0
+    WITHOUT_RAISE = 0
+    ALL_RAISES = 0
+    ALL_CATCHES = 0
+    USER_EXCEPTION = 0
+
     if len(sys.argv) == 2 :
+        PROJECT = sys.argv[1]
+        print("\nProcessing project: " + PROJECT)
+        print "..."
+        metric_list = [['PROJECT', PROJECT]]
         for f in input_path:
             for l in f:
-                print("\nProcessing file: " + l)
+                #print("\nProcessing file: " + l)
                 with open(l, "r") as input:
                     file_str  = input.read()
                     root = ast.parse(file_str)
                     visitor = ExceptionHandling()
                     visitor.visit(root)
+                    visitor_all = ExceptionAll()
+                    visitor_all.visit(root)
+                    visitor_def = UserDef()
+                    visitor_def.visit(root)
+                    
+                    METHODS += visitor.method
+                    WITH_EXCEPT += visitor.mwexception
+                    WITHOUT_EXCEPT += visitor.mwoexception
+                    WITHRAISE += visitor.mwraise
+                    WITHOUT_RAISE += visitor.mworaise
+                    ALL_RAISES += visitor_all.raiseEx
+                    ALL_CATCHES += visitor_all.exception     
+                    USER_EXCEPTION += visitor_def.count     
+
+        metric_list.append(['METHODS', METHODS])
+        metric_list.append(['WITH_EXCEPT', WITH_EXCEPT])                    
+        metric_list.append(['WITHOUT_EXCEPT', WITHOUT_EXCEPT])                    
+        metric_list.append(['WITHRAISE', WITHRAISE])                    
+        metric_list.append(['WITHOUT_RAISE', WITHOUT_RAISE])
+        metric_list.append(['ALL_RAISES', ALL_RAISES])
+        metric_list.append(['ALL_CATCHES', ALL_CATCHES])                    
+        metric_list.append(['USER_EXCEPTION', USER_EXCEPTION])
+
+        with open('metrics.csv', 'wt') as file:
+            writer = csv.writer(file)
+            writer.writerows(metric_list)
+
+        with open('metrics.csv', 'rb') as csvfile:
+            spamreader = csv.reader(csvfile, delimiter=',', quotechar='|')
+            for row in spamreader:
+                print ', '.join(row)
+
     else: 
         for file in input_path:
             with open(file, "r") as input:
